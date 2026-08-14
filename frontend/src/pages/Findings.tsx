@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchFindings, fetchFinding } from '../api';
 import { ShieldAlert, X, Activity } from 'lucide-react';
@@ -13,6 +13,16 @@ export default function Findings() {
     queryFn: () => fetchFinding(selectedId!),
     enabled: !!selectedId,
   });
+
+  const groupedFindings = useMemo(() => {
+    if (!findings) return {};
+    return findings.reduce((acc: any, finding: any) => {
+      const runId = finding.run_id || 'Unknown Run';
+      if (!acc[runId]) acc[runId] = [];
+      acc[runId].push(finding);
+      return acc;
+    }, {} as Record<string, any[]>);
+  }, [findings]);
 
   return (
     <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
@@ -44,19 +54,29 @@ export default function Findings() {
                   {findings?.length === 0 ? (
                     <tr><td colSpan={6} className="empty-state">No findings detected</td></tr>
                   ) : (
-                    findings?.map((f: any) => (
-                      <tr 
-                        key={f.id} 
-                        onClick={() => setSelectedId(f.id)}
-                        style={{ cursor: 'pointer', background: selectedId === f.id ? 'var(--bg-elevated)' : 'transparent' }}
-                      >
-                        <td><span className={`sev-badge sev-${f.severity}`}>{f.severity}</span></td>
-                        <td style={{ fontWeight: 500 }}>{f.title}</td>
-                        <td>{f.risk_score.toFixed(1)}</td>
-                        <td><span className="chip">{f.pipeline}</span></td>
-                        <td>{f.status}</td>
-                        <td>{format(new Date(f.first_seen), 'MMM d, yyyy')}</td>
-                      </tr>
+                    Object.entries(groupedFindings).map(([runId, runFindings]: [string, any]) => (
+                      <React.Fragment key={runId}>
+                        <tr style={{ background: 'var(--bg-elevated)', borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+                          <td colSpan={6} style={{ padding: '8px 16px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            Run ID: <span style={{ fontFamily: 'monospace', color: 'var(--accent-blue-bright)' }}>{runId}</span>
+                            <span style={{ marginLeft: '12px', color: 'var(--text-muted)' }}>({runFindings.length} finding{runFindings.length !== 1 ? 's' : ''})</span>
+                          </td>
+                        </tr>
+                        {runFindings.map((f: any) => (
+                          <tr 
+                            key={f.id} 
+                            onClick={() => setSelectedId(f.id)}
+                            style={{ cursor: 'pointer', background: selectedId === f.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent' }}
+                          >
+                            <td><span className={`sev-badge sev-${f.severity}`}>{f.severity}</span></td>
+                            <td style={{ fontWeight: 500 }}>{f.title}</td>
+                            <td>{f.risk_score.toFixed(1)}</td>
+                            <td><span className="chip">{f.pipeline}</span></td>
+                            <td>{f.status}</td>
+                            <td>{format(new Date(f.first_seen), 'MMM d, yyyy')}</td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
                     ))
                   )}
                 </tbody>

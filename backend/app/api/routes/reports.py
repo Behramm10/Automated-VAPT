@@ -41,31 +41,37 @@ async def _generate_report_task(run_id: str, report_id: str) -> None:
             # Try Llama 3B narrative
             llm_sections = await _generate_llm_narrative(run, findings)
             report.llm_available = llm_sections.get("available", False)
-            report.executive_summary = llm_sections.get("executive_summary", _deterministic_executive_summary(run, findings))
-            report.risk_summary = llm_sections.get("risk_summary", _deterministic_risk_summary(findings))
-            report.technical_overview = llm_sections.get("technical_overview", "")
-            report.business_impact = llm_sections.get("business_impact", "")
-            report.overall_assessment = llm_sections.get("overall_assessment", "")
-            report.remediation_priorities = llm_sections.get("remediation_priorities", "")
-            report.conclusion = llm_sections.get("conclusion", "")
+            def _ensure_str(val):
+                if isinstance(val, (list, dict)):
+                    import json
+                    return json.dumps(val, indent=2)
+                return str(val) if val is not None else ""
+
+            report.executive_summary = _ensure_str(llm_sections.get("executive_summary", _deterministic_executive_summary(run, findings)))
+            report.risk_summary = _ensure_str(llm_sections.get("risk_summary", _deterministic_risk_summary(findings)))
+            report.technical_overview = _ensure_str(llm_sections.get("technical_overview", ""))
+            report.business_impact = _ensure_str(llm_sections.get("business_impact", ""))
+            report.overall_assessment = _ensure_str(llm_sections.get("overall_assessment", ""))
+            report.remediation_priorities = _ensure_str(llm_sections.get("remediation_priorities", ""))
+            report.conclusion = _ensure_str(llm_sections.get("conclusion", ""))
 
             # Generate JSON report
             report_data = _build_report_data(run, findings, report)
             json_path = settings.reports_path / f"{report_id}.json"
             import json
-            json_path.write_text(json.dumps(report_data, indent=2, default=str))
+            json_path.write_text(json.dumps(report_data, indent=2, default=str), encoding="utf-8")
             report.json_path = str(json_path)
 
             # Generate HTML report
             html_content = _generate_html_report(report_data)
             html_path = settings.reports_path / f"{report_id}.html"
-            html_path.write_text(html_content)
+            html_path.write_text(html_content, encoding="utf-8")
             report.html_path = str(html_path)
 
             # Generate PDF
             try:
                 pdf_path = settings.reports_path / f"{report_id}.pdf"
-                _generate_pdf_report(html_content, pdf_path)
+                await _generate_pdf_report(html_content, pdf_path)
                 report.pdf_path = str(pdf_path)
             except Exception as pdf_err:
                 import structlog
@@ -254,12 +260,28 @@ def _generate_html_report(data: dict) -> str:
 </html>"""
 
 
-def _generate_pdf_report(html_content: str, output_path: Path) -> None:
-    """Generate PDF from HTML using WeasyPrint."""
+async def _generate_pdf_report(html_content: str, output_path: Path) -> None:
+    """Generate PDF from HTML using Playwright."""
     try:
-        from weasyprint import HTML
-        HTML(string=html_content).write_pdf(str(output_path))
-    except ImportError:
+        def _run_playwright():
+            import sys
+            import asyncio
+            if sys.platform == "win32":
+                asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+                
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                page = browser.new_page()
+                page.set_content(html_content)
+                page.pdf(path=str(output_path), format="A4", print_background=True)
+                browser.close()
+        
+        import asyncio
+        await asyncio.to_thread(_run_playwright)
+    except Exception as e:
+        import structlog
+        structlog.get_logger().warning("playwright_pdf_failed", error=str(e))
         # Fallback: save as HTML with .pdf extension note
         from fpdf import FPDF
         pdf = FPDF()
@@ -287,6 +309,25 @@ async def generate_report(run_id: str, background_tasks: BackgroundTasks, db: As
     background_tasks.add_task(_generate_report_task, run_id, report.id)
     return {"report_id": report.id, "status": "generating", "message": "Report generation started"}
 
+
+@router.get("/reports", summary="List all reports")
+async def list_reports(db: AsyncSession = Depends(get_db_session)):
+    from app.database.models.report_model import ReportModel
+    result = await db.execute(select(ReportModel).order_by(ReportModel.created_at.desc()))
+    reports = result.scalars().all()
+    return [
+        {
+            "id": r.id,
+            "run_id": r.run_id,
+            "name": r.name,
+            "status": r.status,
+            "llm_available": r.llm_available,
+            "findings_count": r.findings_count,
+            "created_at": r.created_at.isoformat(),
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None
+        }
+        for r in reports
+    ]
 
 @router.get("/reports/{report_id}", summary="Get report details")
 async def get_report(report_id: str, db: AsyncSession = Depends(get_db_session)):

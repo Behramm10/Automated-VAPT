@@ -214,7 +214,7 @@ class MultiTurnCrescendoPipeline(AttackPipeline):
         session_metrics = {
             "degradation_curve": degradation_curve,
             "first_success_turn": first_success_turn,
-            "max_refusal_streak": max((sum(1 for _ in g if not d["is_refusal"]) for g in [degradation_curve]) or [0]),
+            "max_refusal_streak": sum(1 for d in degradation_curve if d["is_refusal"]),
             "behavioral_drift": behavioral_drift,
             "escalation_threshold": first_success_turn,
             "cumulative_adversarial_context": cumulative_adversarial_context,

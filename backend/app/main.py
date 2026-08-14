@@ -190,3 +190,5 @@ async def root() -> dict:
         "health": "/api/health",
         "status": "running",
     }
+
+# Trigger reload

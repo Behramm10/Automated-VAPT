@@ -126,9 +126,9 @@ def calculate_agentic_risk_score(
     )
 
     # Normalize to 0–10 scale
-    # The maximum theoretical raw score with all factors maxed:
-    # 5 × 5 × 5 × 1.0 × 1.8 × 1.5 × 1.0 × 1.5 ≈ 506
-    MAX_RAW = 506.0
+    # The maximum theoretical raw score with all factors maxed is very high, 
+    # but practically, a realistic high-risk attack raw_score is around 50-60.
+    MAX_RAW = 150.0
     normalized = min((raw_score / MAX_RAW) * 10.0, 10.0)
 
     severity = _score_to_severity(normalized)

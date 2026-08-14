@@ -50,7 +50,7 @@ export default function Runs() {
                   <th>Run Name</th>
                   <th>Status</th>
                   <th>Progress</th>
-                  <th>Findings (C/H/M)</th>
+                  <th>Findings (C/H/M/I)</th>
                   <th>Attack Success</th>
                   <th>Started</th>
                   <th>Actions</th>
@@ -67,7 +67,7 @@ export default function Runs() {
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <div style={{ flex: 1, background: 'var(--bg-elevated)', height: '6px', borderRadius: '3px' }}>
-                            <div style={{ width: r.status === 'completed' ? '100%' : '50%', background: 'var(--accent-blue)', height: '100%', borderRadius: '3px' }}></div>
+                            <div style={{ width: (r.status === 'completed' || r.status === 'evidence_ready' || r.status === 'reported') ? '100%' : '50%', background: 'var(--accent-blue)', height: '100%', borderRadius: '3px' }}></div>
                           </div>
                         </div>
                       </td>
@@ -76,16 +76,17 @@ export default function Runs() {
                           {r.critical_findings > 0 && <span className="sev-badge sev-critical">{r.critical_findings}</span>}
                           {r.high_findings > 0 && <span className="sev-badge sev-high">{r.high_findings}</span>}
                           {r.medium_findings > 0 && <span className="sev-badge sev-medium">{r.medium_findings}</span>}
-                          {r.critical_findings === 0 && r.high_findings === 0 && r.medium_findings === 0 && <span className="text-muted">None</span>}
+                          {r.informational_findings > 0 && <span className="sev-badge sev-info" style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}>{r.informational_findings}</span>}
+                          {r.critical_findings === 0 && r.high_findings === 0 && r.medium_findings === 0 && r.informational_findings === 0 && <span className="text-muted">None</span>}
                         </div>
                       </td>
-                      <td>{r.status === 'completed' ? `${((r.attack_success_rate || 0)*100).toFixed(0)}%` : '-'}</td>
+                      <td>{(r.status === 'completed' || r.status === 'evidence_ready' || r.status === 'reported') ? `${((r.attack_success_rate || 0)*100).toFixed(0)}%` : '-'}</td>
                       <td>{r.started_at ? format(new Date(r.started_at), 'MMM d, HH:mm') : '-'}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {r.status === 'registered' || r.status === 'planned' ? (
                             <button className="btn btn-ghost btn-sm" onClick={() => startMut.mutate(r.id)}><Play size={14} /> Start</button>
-                          ) : r.status === 'completed' ? (
+                          ) : (r.status === 'completed' || r.status === 'evidence_ready' || r.status === 'reported') ? (
                             <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/runs/${r.id}/graph`)}><Network size={14} /> Graph</button>
                           ) : null}
                         </div>

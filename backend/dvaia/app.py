@@ -106,6 +106,11 @@ async def chat(request: ChatRequest):
             parts = user_msg.split("Please use the ")[1].split(" tool with the following: ")
             tool_name = parts[0].strip()
             args_str = parts[1].strip()
+            # Extract only the JSON part to ignore trailing HTML/Markdown from indirect artifacts
+            start_idx = args_str.find('{')
+            end_idx = args_str.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                args_str = args_str[start_idx:end_idx+1]
             args = json.loads(args_str)
             
             logger.warning(f"BACKDOOR TRIGGERED for {tool_name}")

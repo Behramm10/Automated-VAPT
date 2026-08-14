@@ -105,7 +105,7 @@ export default function Reports() {
                 <label className="form-label">Select Assessment Run</label>
                 <select className="form-select" value={selectedRun} onChange={e => setSelectedRun(e.target.value)}>
                   <option value="">Select a run...</option>
-                  {runs?.filter((r: any) => r.status === 'completed').map((r: any) => (
+                  {runs?.filter((r: any) => r.status === 'evidence_ready' || r.status === 'reported').map((r: any) => (
                     <option key={r.id} value={r.id}>{r.name} ({r.findings_count} findings)</option>
                   ))}
                 </select>

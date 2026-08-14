@@ -155,9 +155,9 @@ def initialize_mock_agents() -> None:
     """Register all mock agents in the registry."""
     try:
         # Add parent directory to path for datasets
-        datasets_path = Path(__file__).parent.parent.parent.parent.parent / "datasets" / "mock_agents"
-        if str(datasets_path) not in sys.path:
-            sys.path.insert(0, str(datasets_path.parent.parent))
+        root_path = Path(__file__).resolve().parent.parent.parent.parent
+        if str(root_path) not in sys.path:
+            sys.path.insert(0, str(root_path))
 
         from datasets.mock_agents.support_agent import MockSupportAgent
         MockAgentRegistry.register("mock_support_agent", MockSupportAgent())
