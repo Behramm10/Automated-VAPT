@@ -1,0 +1,115 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vapt-postgres
+    environment:
+      POSTGRES_USER: vapt
+      POSTGRES_PASSWORD: vapt
+      POSTGRES_DB: vapt
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vapt"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vapt-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vapt-backend
+    environment:
+      APP_ENV: production
+      DATABASE_URL: postgresql+asyncpg://vapt:vapt@postgres:5432/vapt
+      USE_SQLITE: "false"
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3:3b
+      SANDBOX_FIXTURE_DIR: /app/sandbox/fixtures
+      REAL_TARGET_MODE: "false"
+      SANDBOX_ENABLED: "true"
+      SANDBOX_NETWORK_DISABLED: "true"
+      LOG_LEVEL: INFO
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:80","http://frontend"]'
+    volumes:
+      - ./reports:/app/reports
+      - ./evidence:/app/evidence
+      - ./datasets:/app/datasets
+      - ./sandbox/fixtures:/app/sandbox/fixtures
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vapt-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vapt-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - vapt-network
+    restart: unless-stopped
+
+  sandbox:
+    build:
+      context: ./sandbox
+      dockerfile: Dockerfile
+    container_name: vapt-sandbox
+    environment:
+      SANDBOX_MODE: "true"
+      FIXTURE_DIR: /fixtures
+    volumes:
+      - ./sandbox/fixtures:/fixtures:ro
+    networks:
+      - sandbox-network
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    mem_limit: 256m
+    cpus: 0.5
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: vapt-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - vapt-network
+    restart: unless-stopped
+    profiles:
+      - ollama
+
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  vapt-network:
+    driver: bridge
+  sandbox-network:
+    driver: bridge
+    internal: true

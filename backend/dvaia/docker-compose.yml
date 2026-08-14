@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  dvaia:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      # Use host.docker.internal to reach the Ollama instance running on the host machine
+      - OLLAMA_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
