@@ -12,7 +12,7 @@
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 - [About the Project](#-about-the-project)
 - [Key Features](#-key-features)
 - [High-Level Architecture](#-high-level-architecture)
